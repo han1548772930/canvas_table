@@ -7,11 +7,11 @@ import init, { TableConfig, TableManager } from '../canvas-wasm/pkg';
 const config = {
   columns: 50,
   rows: 1000000000,
-  cellWidth: 100,
-  cellHeight: 30,
+  cellWidth: 120,
+  cellHeight: 50,
   headerHeight: 40,
   visibleWidth: document.documentElement.clientWidth,
-  visibleHeight: document.documentElement.clientHeight - 50,
+  visibleHeight: document.documentElement.clientHeight - 40,
   segmentSize: 1000, // 每段1000行
 
   // 添加安全上限
@@ -175,7 +175,8 @@ const handleScrollbarClick = (e: MouseEvent) => {
   // 根据比例计算滚动位置 - 使用真实滚动空间
   const newScrollTop = Math.max(0, Math.min(realMaxScroll.value, ratio * realMaxScroll.value));
 
-  scrollTop.value = newScrollTop;
+  const maxScrollTop = totalHeight.value - config.visibleHeight;
+  scrollTop.value = Math.min(newScrollTop, maxScrollTop);
   renderTable();
 };
 
@@ -241,7 +242,6 @@ const scrollbarStyle = computed(() => {
 
   // 计算滚动条位置 - 使用真实比例
   const top = realScrollRatio.value * (containerHeight - height);
-
   return {
     height: `${height}px`,
     top: `${top}px`,
@@ -268,6 +268,7 @@ const scrollToRow = (rowIndex: number) => {
   scrollTop.value = Math.min(rowPosition, realMaxScroll.value);
   renderTable();
 };
+
 // 初始化 WASM 和表格管理器
 const initializeWasm = async () => {
   try {
@@ -286,11 +287,12 @@ const initializeWasm = async () => {
 
     tableManager = new TableManager(tableConfig, config.segmentSize)
 
+
     totalWidth.value = tableManager.get_total_width();
     totalHeight.value = realTotalHeight.value;
 
     // 预加载前几段数据
-    tableManager.preload_segments(0, 3);
+    // tableManager.preload_segments(0, 3);
 
     wasmLoaded.value = true;
 
@@ -362,11 +364,13 @@ const renderTable = () => {
     if (!isHeaderInitialized.value) {
       renderHeader();
     }
+    tableManager.configure_hd_canvas(canvasRef.value!, ctx);
     tableManager.render_content(
       ctx,
       scrollLeft.value,
       scrollTop.value
     );
+    // 配置高 DPI 支持
 
 
   } catch (error) {
@@ -374,6 +378,8 @@ const renderTable = () => {
     console.error('渲染错误:', error);
   }
 };
+
+
 // 处理滚动事件
 const handleWheel = (e: WheelEvent) => {
   // 按住Shift键进行水平滚动
@@ -454,8 +460,7 @@ onBeforeUnmount(() => {
         <!-- 内容容器 -->
         <div ref="containerRef" class="content-container" :style="{
           width: `${config.visibleWidth}px`,
-          height: `${config.visibleHeight}px`,
-          marginTop: `${config.headerHeight}px`
+          height: `${config.visibleHeight}px`
         }">
           <canvas ref="canvasRef" class="content-canvas" :width="config.visibleWidth"
             :height="config.visibleHeight"></canvas>
@@ -490,12 +495,11 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .table-wrapper {
-  position: relative;
   overflow: hidden;
 }
 
 .header-container {
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
   z-index: 20;
@@ -505,23 +509,35 @@ onBeforeUnmount(() => {
 }
 
 .content-container {
-  position: relative;
   overflow: hidden;
+  margin-top: 40px;
+  position: relative;
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
 }
 
 .content-canvas {
-  position: absolute;
-  top: 0;
+  position: fixed;
+  top: 40px;
   left: 0;
   z-index: 10;
   pointer-events: none;
 }
 
+
+
+.content-container::-webkit-scrollbar {
+  display: none;
+  /* Chrome, Safari and Opera */
+}
+
 /* 垂直滚动条轨道 */
 .scrollbar-track.vertical {
   position: absolute;
-  top: 0;
   right: 0;
+
   width: 12px;
   height: calc(100% - 12px);
   /* 留出底部水平滚动条的空间 */
@@ -533,7 +549,7 @@ onBeforeUnmount(() => {
 
 /* 水平滚动条轨道 */
 .scrollbar-track.horizontal {
-  position: absolute;
+  position: fixed;
   bottom: 0;
   left: 0;
   width: calc(100% - 12px);
@@ -573,7 +589,7 @@ onBeforeUnmount(() => {
 
 /* 其他样式保持不变 */
 .debug-panel {
-  position: fixed;
+  position: absolute;
   bottom: 10px;
   right: 10px;
   background: rgba(255, 255, 255, 0.9);
