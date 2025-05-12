@@ -1,3 +1,0 @@
-[submodule "canvas-wasm"]
-	path = canvas-wasm
-	url = ./canvas-wasm
